@@ -1,0 +1,6 @@
+torch
+torchvision
+numpy
+pillow
+blind-watermark
+adversarial-robustness-toolbox
