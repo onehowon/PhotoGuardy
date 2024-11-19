@@ -9,12 +9,14 @@ from art.attacks.evasion import (
     MomentumIterativeMethod, SaliencyMapMethod, NewtonFool
 )
 from art.estimators.classification import PyTorchClassifier
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageEnhance, ImageDraw
 import numpy as np
 import os
 from blind_watermark import WaterMark
 from torchvision.models import resnet50, vgg16, ResNet50_Weights, VGG16_Weights
 import tempfile
+import cv2
+import dlib
 
 resnet_model = resnet50(weights=ResNet50_Weights.DEFAULT)
 num_ftrs_resnet = resnet_model.fc.in_features
@@ -51,13 +53,44 @@ models_dict = {
     "VGG16": vgg_classifier
 }
 
-def preprocess_image(image):
+face_detector = dlib.get_frontal_face_detector()
+landmark_predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+
+def detect_face_landmarks(image):
+    gray_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
+    faces = face_detector(gray_image)
+
+    landmarks = []
+    for face in faces:
+        shape = landmark_predictor(gray_image, face)
+
+        landmarks.extend([(shape.part(i).x, shape.part(i).y) for i in range(36, 48)])  # 눈
+        landmarks.extend([(shape.part(i).x, shape.part(i).y) for i in range(27, 36)])  # 코
+        landmarks.extend([(shape.part(i).x, shape.part(i).y) for i in range(48, 68)])  # 입
+    return landmarks
+
+def apply_focus_mask(image, landmarks):
+    mask = Image.new("L", image.size, 0)
+    draw = ImageDraw.Draw(mask)
+    for (x, y) in landmarks:
+        draw.ellipse((x-10, y-10, x+10, y+10), fill=255)
+    return mask
+
+def preprocess_image_with_landmark_focus(image, downscale_factor=0.5):
+    landmarks = detect_face_landmarks(image)
+    original_size = image.size
+    low_res_size = (int(original_size[0] * downscale_factor), int(original_size[1] * downscale_factor))
+
+
+    mask = apply_focus_mask(image, landmarks)
+    low_res_image = image.resize(low_res_size, Image.BILINEAR).resize(original_size, Image.BILINEAR)
+    masked_image = Image.composite(low_res_image, image, mask)
+
     transform = transforms.Compose([
-        transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
-    return transform(image).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
+    return transform(masked_image).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
 
 def postprocess_image(tensor, original_size):
     adv_img_np = tensor.squeeze(0).cpu().numpy()
@@ -71,7 +104,8 @@ def postprocess_image(tensor, original_size):
 
 def generate_adversarial_image(image, model_name, attack_types, eps_value):
     original_size = image.size
-    img_tensor = preprocess_image(image)
+
+    img_tensor = preprocess_image_with_landmark_focus(image)
 
     classifier = models_dict[model_name]
 
@@ -159,17 +193,24 @@ def process_image(image, model_name, attack_types, eps_value, wm_text, password_
     watermarked_image.save(output_path, format="PNG")
     return image, adv_image, watermarked_image, extracted_wm_text, output_path
 
-def download_image_as_png(image_path):
-    with open(image_path, "rb") as file:
-        return file.read(), "image/png"
-
+# Gradio 인터페이스
 interface = gr.Interface(
     fn=process_image,
     inputs=[
         gr.Image(type="pil", label="이미지를 업로드하세요"),
         gr.Dropdown(choices=["ResNet50", "VGG16"], label="모델 선택"),
-        gr.CheckboxGroup(choices=["FGSM", "C&W", "DeepFool", "AutoAttack", "PGD", "BIM", "STA", "MIM", "JSMA", "NewtonFool"], label="공격 유형 선택"),
-        gr.Slider(0.001, 0.9, step=0.001, value=0.005, label="Epsilon 값 설정 (노이즈 강도)"),
+        gr.CheckboxGroup(
+            choices=["FGSM", "C&W", "DeepFool", "AutoAttack", "PGD", "BIM", "STA", "MIM", "JSMA", "NewtonFool"],
+            label="공격 유형 선택",
+            value=["PGD"]  # 기본값으로 PGD 선택
+        ),
+        gr.Slider(
+            minimum=0.001,
+            maximum=0.9,
+            step=0.001,
+            value=0.01,  # 기본값 EPS 0.01 설정
+            label="Epsilon 값 설정 (노이즈 강도)"
+        ),
         gr.Textbox(label="워터마크 텍스트 입력", value="텍스트 삽입"),
         gr.Number(label="이미지 비밀번호", value=0),
         gr.Number(label="워터마크 비밀번호", value=0)
