@@ -25,9 +25,11 @@ Check out the configuration reference at https://huggingface.co/docs/hub/spaces-
 ---
 
 ## 📂 프로젝트 구조
-. ├── app.py # 메인 애플리케이션 파일 
-  ├── requirements.txt # 필요한 Python 패키지 목록 
-  └── README.md # 프로젝트 설명 파일
+```bash
+.
+├── app.py               # 메인 애플리케이션 파일 
+├── requirements.txt     # 필요한 Python 패키지 목록 
+└── README.md            # 프로젝트 설명 파일
 
   
 ---
