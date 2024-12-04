@@ -12,7 +12,7 @@ license: apache-2.0
 
 Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
 
-# Adversarial Image Generation and Watermarking Service
+# PhotoGuardy
 
 ## 📜 프로젝트 소개
 이 프로젝트는 딥러닝 모델(ResNet50, VGG16)을 활용해 적대적 이미지를 생성하고, 워터마크를 삽입 및 추출할 수 있는 **Gradio 웹 애플리케이션**입니다.
