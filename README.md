@@ -26,10 +26,23 @@ Check out the configuration reference at https://huggingface.co/docs/hub/spaces-
 
 ## 📂 프로젝트 구조
 ```bash
-.
-├── app.py               # 메인 애플리케이션 파일 
-├── requirements.txt     # 필요한 Python 패키지 목록 
-└── README.md            # 프로젝트 설명 파일
+project/
+├── main.py                   # Gradio 인터페이스와 실행 로직
+├── models/
+│   ├── resnet_model.py       # ResNet 모델 정의 및 초기화
+│   ├── vgg_model.py          # VGG 모델 정의 및 초기화
+│   ├── classifier_setup.py   # PyTorchClassifier 설정
+├── attacks/
+│   ├── adversarial.py        # 공격 생성 관련 함수
+├── watermark/
+│   ├── watermark_utils.py    # 워터마크 삽입 및 추출 관련 함수
+├── landmarks/
+│   ├── face_detection.py     # 얼굴 검출 및 랜드마크 추출
+│   ├── focus_mask.py         # 랜드마크 기반 포커스 마스크 생성
+├── utils/
+│   ├── preprocess.py         # 이미지 전처리 관련 함수
+│   ├── postprocess.py        # 이미지 후처리 관련 함수
+└── requirements.txt          # 의존성 패키지 목록
 
   
 ---
